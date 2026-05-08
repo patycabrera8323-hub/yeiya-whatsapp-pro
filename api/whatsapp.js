@@ -52,14 +52,16 @@ module.exports = async function handler(req, res) {
         const text = message.text.body;
         const profileName = value?.contacts?.[0]?.profile?.name || 'Cliente';
 
-        // --- LÓGICA DE IA (Gemini) ---
-        console.log('Enviando a Gemini:', text);
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // --- LÓGICA DE IA (Gemini vía API Directa) ---
+        console.log('Enviando a Gemini (API Directa):', text);
+        const geminiResponse = await axios.post(
+          `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          {
+            contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n\nCliente: " + text }] }]
+          }
+        );
 
-        // Generar respuesta
-        const result = await model.generateContent(text);
-        const replyText = result.response.text();
+        const replyText = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Lo siento, Yeiya está experimentando una alta demanda. Por favor intenta de nuevo en un momento.";
 
         // --- GUARDAR EN SUPABASE ---
         const { error: dbError } = await supabase.from('leads').upsert({
