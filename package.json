@@ -1,0 +1,11 @@
+{
+  "name": "yeiya-whatsapp-pro",
+  "version": "1.0.0",
+  "description": "Yeiya AI WhatsApp Agent with Gemini and Supabase",
+  "main": "index.js",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.6.0"
+  }
+}
