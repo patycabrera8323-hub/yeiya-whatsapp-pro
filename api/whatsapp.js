@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
         // --- LÓGICA DE IA (Gemini vía API Directa) ---
         console.log('Enviando a Gemini (API Directa):', text);
         const geminiResponse = await axios.post(
-          `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
           {
             contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n\nCliente: " + text }] }]
           }
