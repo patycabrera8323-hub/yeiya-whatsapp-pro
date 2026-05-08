@@ -41,8 +41,9 @@ module.exports = async function handler(req, res) {
 
   // 2. Procesamiento de Mensajes (POST)
   if (req.method === 'POST') {
-    console.log('--- NUEVO EVENTO RECIBIDO ---');
-    console.log(JSON.stringify(req.body, null, 2));
+    console.log('>>> PETICIÓN RECIBIDA DESDE META <<<');
+    console.log('HEADERS:', JSON.stringify(req.headers, null, 2));
+    console.log('BODY:', JSON.stringify(req.body, null, 2));
 
     try {
       const entry = req.body.entry?.[0];
@@ -50,21 +51,28 @@ module.exports = async function handler(req, res) {
       const value = changes?.value;
       const message = value?.messages?.[0];
 
-      if (message && message.type === 'text') {
-        const phone = message.from;
-        const text = message.text.body;
-        const profileName = value?.contacts?.[0]?.profile?.name || 'Cliente';
+      if (!message) {
+        console.log('No se detectó un mensaje en este evento (puede ser un estado de entrega).');
+        return res.status(200).json({ status: 'ignored' });
+      }
+
+      const phone = message.from;
+      const text = message.text?.body || "(Sin texto)";
+      const profileName = value?.contacts?.[0]?.profile?.name || 'Cliente';
+
+      if (message.type === 'text') {
+        console.log(`Mensaje de ${profileName} (${phone}): ${text}`);
 
         // --- LÓGICA DE IA (Gemini vía API Directa) ---
-        console.log('Enviando a Gemini (Pro):', text);
+        console.log('Llamando a Gemini...');
         const geminiResponse = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
           {
             contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n\nCliente: " + text }] }]
           }
         );
 
-        const replyText = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Lo siento, tuve un problema técnico. Por favor intenta de nuevo.";
+        const replyText = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || "Lo siento, tuve un problema técnico.";
 
         // --- GUARDAR EN SUPABASE ---
         const { error: dbError } = await supabase.from('leads').upsert({
@@ -78,6 +86,7 @@ module.exports = async function handler(req, res) {
         if (dbError) console.error('Error Supabase:', dbError);
 
         // --- ENVIAR RESPUESTA POR WHATSAPP ---
+        console.log('Enviando respuesta a WhatsApp...');
         await axios.post(
           `https://graph.facebook.com/v21.0/${process.env.PHONE_NUMBER_ID}/messages`,
           {
@@ -90,11 +99,12 @@ module.exports = async function handler(req, res) {
             headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` }
           }
         );
+        console.log('Respuesta enviada con éxito.');
       }
 
       return res.status(200).json({ status: 'success' });
     } catch (error) {
-      console.error('Error General:', error.response?.data || error.message);
+      console.error('ERROR EN EL HANDLER:', error.response?.data || error.message);
       return res.status(500).json({ error: 'Internal Error' });
     }
   }
